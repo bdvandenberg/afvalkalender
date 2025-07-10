@@ -1,7 +1,8 @@
-from bs4 import BeautifulSoup
 from datetime import date
-from urllib.request import Request, urlopen
 from urllib.error import HTTPError
+from urllib.request import Request, urlopen
+
+from bs4 import BeautifulSoup
 
 BASE_URL = "https://mijnafvalwijzer.nl"
 
@@ -78,7 +79,7 @@ class WasteFetcher:
         if not section:
             return []
         results = []
-        for item in section.select("a.wasteInfoIcon"):
+        for item in section.select("a.wasteInfoIcon"):  # type: ignore[attr-defined]
             datum_tag = item.find("span", class_="span-line-break")
             afval_tag = item.find("span", class_="afvaldescr")
             if datum_tag is None or afval_tag is None:

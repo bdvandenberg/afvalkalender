@@ -1,0 +1,24 @@
+[tool.pytest.ini_options]
+addopts = '--ruff --isort --mypy --pydocstyle --cov=afvalkalender --cov-report=term-missing'
+
+[tool.ruff]
+line-length = 88
+
+[tool.isort]
+profile = 'black'
+line_length = 88
+
+[tool.mypy]
+python_version = '3.11'
+ignore_missing_imports = true
+
+[tool.pydocstyle]
+convention = 'pep257'
+add-ignore = [
+    "D100",
+    "D101",
+    "D102",
+    "D103",
+    "D104",
+    "D107",
+]
