@@ -1,5 +1,5 @@
 from bs4 import BeautifulSoup
-from datetime import datetime, date
+from datetime import datetime, date, UTC
 import locale
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
@@ -17,8 +17,6 @@ except locale.Error:
         locale.setlocale(locale.LC_TIME, '')
 
 BASE_URL = "https://mijnafvalwijzer.nl"
-
-
 
 
 class WasteFetcher:
@@ -114,9 +112,9 @@ def export_ical(filename: str, items: list[tuple[date, str]], postcode: str, hui
         "BEGIN:VCALENDAR",
         "VERSION:2.0",
         f"PRODID:-//afvalkalender//{postcode}-{huisnummer}//EN",
-        f"X-WR-CALNAME:Afval {postcode} {huisnummer}",
-    ]
-    stamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+        f"X-WR-CALNAME:Afvalkalender {postcode} {huisnummer}",
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+
     for dt, cat in items:
         uid = f"{postcode}-{huisnummer}-{dt.isoformat()}"
         lines.extend([
@@ -154,7 +152,7 @@ def main(argv: list[str] | None = None):
     items = fetcher.fetch(year)
     for dt, cat in items:
         print(dt, cat)
-    export_ical("afval.ics", items, postcode, huisnummer)
+    export_ical(f"afvalkalender {postcode}-{huisnummer}.ics", items, postcode, huisnummer)
 
 
 if __name__ == "__main__":
