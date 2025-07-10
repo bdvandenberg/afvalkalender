@@ -1,19 +1,8 @@
 from bs4 import BeautifulSoup
-import requests
-from datetime import datetime, timedelta
+from datetime import datetime, date
 import locale
-import icalendar
-
-def is_plastic(soup):
-    """Return ``True`` when the element contains plastic waste info."""
-    if soup.find("p", {"class": "plastic"}) is not None:
-        return True
-    return False
-
-def get_plastic(soup):
-    res = soup.find("p", {"class": "plastic"})
-    # Split the text into lines and remove empty parts/whitespace
-    return [line.strip() for line in res.text.split("\n") if line.strip()]
+from urllib.request import Request, urlopen
+from urllib.error import HTTPError
 
 # Ensure month and weekday names are parsed/created in Dutch.  Not all
 # systems provide the ``nl_NL`` locale, so fall back gracefully when it is
@@ -26,51 +15,99 @@ except locale.Error:
     except locale.Error:
         locale.setlocale(locale.LC_TIME, '')
 
-url = "http://mijnafvalwijzer.nl"
-postcode = "3603AN"
-huisnummer = 54
-jaar = 2025
+BASE_URL = "https://mijnafvalwijzer.nl"
 
-res = requests.get(url=f"{url}/nl/{postcode}/{huisnummer}/#jaar-{jaar}")
-soup = BeautifulSoup(res.content, "html.parser")
+# Postcode/huisnummer combinations that need to be fetched
+COMBINATIONS = [
+    ("3997MH", 63),
+    ("3603AN", 54),
+    ("3723KA", 9),
+    ("2611HV", 9),
+]
 
-dates = soup.find_all("a", {"class":"wasteInfoIcon textDecorationNone"})
-ls = []
-for date in dates:
-    if is_plastic(date):
-        datum, afval = get_plastic(date)
-    else:
-        datum = date.find("span", {"class": "span-line-break"}).text.strip()
-        afval = date.find("span", {"class": "afvaldescr"}).text.strip()
+MONTHS = {
+    "januari": 1,
+    "februari": 2,
+    "maart": 3,
+    "april": 4,
+    "mei": 5,
+    "juni": 6,
+    "juli": 7,
+    "augustus": 8,
+    "september": 9,
+    "oktober": 10,
+    "november": 11,
+    "december": 12,
+}
 
-    dt = datetime.strptime(datum.strip(), "%A %d %B %Y")
-    ls.append((dt.date(), afval))
+def parse_dutch_date(text, year):
+    """Parse a date string like 'maandag 01 januari' for ``year``."""
+    parts = text.lower().split()
+    if len(parts) < 3:
+        raise ValueError("Unrecognized date format")
+    day = int(parts[1])
+    month = MONTHS.get(parts[2])
+    if not month:
+        raise ValueError("Unknown month")
+    return date(year, month, day)
 
-# Create calendar
-cal = icalendar.Calendar()
-cal.add('prodid', f'afvalkalender {postcode} {huisnummer}')
-cal.add('version', '2.0')
-cal.add("X-WR-CALNAME", f"Afvalkalender {jaar}")
 
-for n, (datum, afval) in enumerate(ls):
-    if datum.year != jaar:
-        continue
-    event = icalendar.Event()
-    event.add("dtstamp", datetime.now())
-    event.add("uid", n)
-    event.add('summary', afval)
-    event.add('dtstart', datum)
-    alarm_6h_before = icalendar.Alarm()
-    alarm_6h_before.add('action', 'DISPLAY')
-    alarm_6h_before.add('trigger', timedelta(hours=-6))
-    alarm_6h_before.add('description', '')
-    alarm_6h_after = icalendar.Alarm()
-    alarm_6h_after.add('action', 'DISPLAY')
-    alarm_6h_after.add('trigger', timedelta(hours=6))
-    alarm_6h_after.add('description', '')
-    event.add_component(alarm_6h_before)
-    event.add_component(alarm_6h_after)
-    cal.add_component(event)
+def categorize(name):
+    """Return one of the known waste categories for ``name``."""
+    text = name.lower()
+    if "pmd" in text or "plastic" in text or "metaal" in text or "drankkarton" in text:
+        return "PMD"
+    if "papier" in text or "karton" in text:
+        return "Papier en karton"
+    if "gft" in text or "groente" in text or "fruit" in text or "tuin" in text:
+        return "GFT"
+    if "rest" in text:
+        return "Restafval"
+    return name.strip()
 
-with open('afval.ics', 'wb') as f:
-    f.write(cal.to_ical())
+
+def fetch_waste(postcode, huisnummer, year):
+    req = Request(
+        f"{BASE_URL}/nl/{postcode}/{huisnummer}/#jaar-{year}",
+        headers={"User-Agent": "Mozilla/5.0"},
+    )
+    try:
+        with urlopen(req) as res:
+            html = res.read()
+    except HTTPError as exc:
+        print(f"Failed to fetch {postcode}-{huisnummer}: {exc}")
+        return []
+    soup = BeautifulSoup(html, "html.parser")
+    section = soup.find(id=f"jaar-{year}")
+    if not section:
+        return []
+    results = []
+    for date in section.select("a.wasteInfoIcon"):
+        datum_tag = date.find("span", class_="span-line-break")
+        afval_tag = date.find("span", class_="afvaldescr")
+        if datum_tag is None or afval_tag is None:
+            continue
+        datum = datum_tag.get_text(strip=True)
+        afval = afval_tag.get_text(strip=True)
+        try:
+            dt = parse_dutch_date(datum.strip(), year)
+        except Exception:
+            continue
+        results.append((dt, categorize(afval)))
+    return results
+
+
+def main():
+    year = datetime.now().year
+    all_results = {}
+    for postcode, huisnummer in COMBINATIONS:
+        all_results[f"{postcode}-{huisnummer}"] = fetch_waste(postcode, huisnummer, year)
+
+    for key, values in all_results.items():
+        print(key)
+        for datum, afval in values:
+            print(datum, afval)
+
+
+if __name__ == "__main__":
+    main()
