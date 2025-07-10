@@ -8,14 +8,26 @@ import sys
 postcode, huisnummer = sys.argv[1], sys.argv[2]
 
 def is_plastic(soup):
-    if soup.find("p", {"class":"plastic"}) is not None:
+    """Return ``True`` when the element contains plastic waste info."""
+    if soup.find("p", {"class": "plastic"}) is not None:
         return True
+    return False
 
 def get_plastic(soup):
-    res = soup.find("p", {"class":"plastic"})
-    return res.text.split("\n")
+    res = soup.find("p", {"class": "plastic"})
+    # Split the text into lines and remove empty parts/whitespace
+    return [line.strip() for line in res.text.split("\n") if line.strip()]
 
-locale.setlocale(locale.LC_TIME, 'nl_NL')
+# Ensure month and weekday names are parsed/created in Dutch.  Not all
+# systems provide the ``nl_NL`` locale, so fall back gracefully when it is
+# unavailable.
+try:
+    locale.setlocale(locale.LC_TIME, 'nl_NL')
+except locale.Error:
+    try:
+        locale.setlocale(locale.LC_TIME, 'nl_NL.UTF-8')
+    except locale.Error:
+        locale.setlocale(locale.LC_TIME, '')
 
 url = "http://mijnafvalwijzer.nl"
 # postcode = "3997MH"
@@ -31,10 +43,10 @@ for date in dates:
     if is_plastic(date):
         datum, afval = get_plastic(date)
     else:
-        datum = date.find("span", {"class":"span-line-break"}).text
-        afval = date.find("span", {"class":"afvaldescr"}).text
+        datum = date.find("span", {"class": "span-line-break"}).text.strip()
+        afval = date.find("span", {"class": "afvaldescr"}).text.strip()
 
-    dt = datetime.strptime(datum, "%A %d %B %Y")
+    dt = datetime.strptime(datum.strip(), "%A %d %B %Y")
     ls.append((dt.date(), afval))
 
 # Create calendar
@@ -63,6 +75,5 @@ for n, (datum, afval) in enumerate(ls):
     event.add_component(alarm_6h_after)
     cal.add_component(event)
 
-f = open('afval.ics', 'wb')
-f.write(cal.to_ical())
-f.close()
+with open('afval.ics', 'wb') as f:
+    f.write(cal.to_ical())
