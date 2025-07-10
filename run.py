@@ -3,6 +3,9 @@ from datetime import datetime, date
 import locale
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
+import sys
+
+postcode, huisnummer = sys.argv[1:3] if len(sys.argv) > 2 else (None, None)
 
 # Ensure month and weekday names are parsed/created in Dutch.  Not all
 # systems provide the ``nl_NL`` locale, so fall back gracefully when it is
@@ -16,14 +19,6 @@ except locale.Error:
         locale.setlocale(locale.LC_TIME, '')
 
 BASE_URL = "https://mijnafvalwijzer.nl"
-
-# Postcode/huisnummer combinations that need to be fetched
-COMBINATIONS = [
-    ("3997MH", 63),
-    ("3603AN", 54),
-    ("3723KA", 9),
-    ("2611HV", 9),
-]
 
 MONTHS = {
     "januari": 1,
@@ -99,15 +94,9 @@ def fetch_waste(postcode, huisnummer, year):
 
 def main():
     year = datetime.now().year
-    all_results = {}
-    for postcode, huisnummer in COMBINATIONS:
-        all_results[f"{postcode}-{huisnummer}"] = fetch_waste(postcode, huisnummer, year)
-
-    for key, values in all_results.items():
-        print(key)
-        for datum, afval in values:
-            print(datum, afval)
-
+    results = fetch_waste(postcode, huisnummer, year)
+    for datum, afval in results:
+        print(datum, afval)
 
 if __name__ == "__main__":
     main()
