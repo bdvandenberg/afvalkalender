@@ -113,6 +113,7 @@ def export_ical(filename: str, items: list[tuple[date, str]], postcode: str, hui
         "VERSION:2.0",
         f"PRODID:-//afvalkalender//{postcode}-{huisnummer}//EN",
         f"X-WR-CALNAME:Afvalkalender {postcode} {huisnummer}",
+    ]
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
 
     for dt, cat in items:
