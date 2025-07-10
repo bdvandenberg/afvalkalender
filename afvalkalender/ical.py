@@ -1,4 +1,4 @@
-from datetime import datetime, date, UTC
+from datetime import UTC, date, datetime
 
 
 def export_ical(filename: str, items: list[tuple[date, str]], postcode: str, huisnummer: int):
