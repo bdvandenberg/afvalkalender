@@ -3,6 +3,9 @@ import requests
 from datetime import datetime, timedelta
 import locale
 import icalendar
+import sys
+
+postcode, huisnummer = sys.argv[1], sys.argv[2]
 
 def is_plastic(soup):
     if soup.find("p", {"class":"plastic"}) is not None:
@@ -15,8 +18,8 @@ def get_plastic(soup):
 locale.setlocale(locale.LC_TIME, 'nl_NL')
 
 url = "http://mijnafvalwijzer.nl"
-postcode = "3603AN"
-huisnummer = 54
+# postcode = "3997MH"
+# huisnummer = 63
 jaar = 2025
 
 res = requests.get(url=f"{url}/nl/{postcode}/{huisnummer}/#jaar-{jaar}")
@@ -38,7 +41,7 @@ for date in dates:
 cal = icalendar.Calendar()
 cal.add('prodid', f'afvalkalender {postcode} {huisnummer}')
 cal.add('version', '2.0')
-cal.add("X-WR-CALNAME", f"Afvalkalender {jaar}")
+cal.add("X-WR-CALNAME", f"Afvalkalender {jaar} - {postcode} {huisnummer}")
 
 for n, (datum, afval) in enumerate(ls):
     if datum.year != jaar:
